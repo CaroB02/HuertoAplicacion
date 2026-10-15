@@ -1,6 +1,7 @@
 package com.example.huertoaplicaciones.data
 
 import com.example.huertoaplicaciones.data.entity.Usuario
+import com.example.huertoaplicaciones.util.Perfil
 
 suspend fun cargarDatosIniciales(db: AppDatabase) {
     val usuarioDao = db.usuarioDao()
@@ -8,14 +9,14 @@ suspend fun cargarDatosIniciales(db: AppDatabase) {
 
     usuarioDao.insertar(
         Usuario(nombre = "Docente Prueba", correo = "docente@huerta.cl",
-            clave = "123456", perfil = "ADMIN", grupo = "Taller Huerto")
+            clave = "123456", perfil = Perfil.ADMIN, grupo = "Taller Huerto")
     )
     usuarioDao.insertar(
         Usuario(nombre = "Estudiante Uno", correo = "estudiante@huerta.cl",
-            clave = "123456", perfil = "ESTUDIANTE", grupo = "Grupo A")
+            clave = "123456", perfil = Perfil.ESTUDIANTE, grupo = "Grupo A")
     )
     usuarioDao.insertar(
         Usuario(nombre = "Estudiante Dos", correo = "estudiante2@huerta.cl",
-            clave = "123456", perfil = "ESTUDIANTE", grupo = "Grupo B")
+            clave = "123456", perfil = Perfil.ESTUDIANTE, grupo = "Grupo B")
     )
 }

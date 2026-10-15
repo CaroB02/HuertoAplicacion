@@ -21,7 +21,7 @@ class AuthViewModel(
     fun onEmailChanged(nuevoEmail: String) {
         val error = when {
             nuevoEmail.isBlank() -> "El correo electrónico no puede estar vacío"
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(nuevoEmail).matches() -> "Ingrese un formato de correo válido"
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(nuevoEmail).matches() -> "Ingrese un correo válido (ejemplo: nombre@huerta.cl)"
             else -> null
         }
         _uiState.update {
