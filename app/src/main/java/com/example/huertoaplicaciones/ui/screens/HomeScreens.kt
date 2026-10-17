@@ -15,7 +15,8 @@ private fun PanelBase(
     titulo: String,
     saludo: String,
     descripcion: String,
-    onCerrarSesion: () -> Unit
+    onCerrarSesion: () -> Unit,
+    contenido: @Composable ColumnScope.() -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -46,18 +47,28 @@ private fun PanelBase(
             Text(saludo, style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(8.dp))
             Text(descripcion, style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(24.dp))
+            contenido()
         }
     }
 }
 
 @Composable
-fun HomeAdminScreen(nombre: String, onCerrarSesion: () -> Unit) {
+fun HomeAdminScreen(
+    nombre: String,
+    onIrASectores: () -> Unit,
+    onCerrarSesion: () -> Unit
+) {
     PanelBase(
         titulo = "Panel del docente",
         saludo = "Hola, $nombre",
         descripcion = "Aquí irán sectores, cultivos, tareas y validaciones",
         onCerrarSesion = onCerrarSesion
-    )
+    ) {
+        Button(onClick = onIrASectores, modifier = Modifier.fillMaxWidth()) {
+            Text("Gestionar sectores")
+        }
+    }
 }
 
 @Composable

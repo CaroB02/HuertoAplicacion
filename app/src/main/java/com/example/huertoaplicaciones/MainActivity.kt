@@ -12,6 +12,7 @@ import com.example.huertoaplicaciones.ui.navigation.AppNavigation
 import com.example.huertoaplicaciones.ui.theme.HuertoAplicacionesTheme
 import com.example.huertoaplicaciones.viewmodel.AuthViewModel
 import com.example.huertoaplicaciones.viewmodel.AuthViewModelFactory
+import com.example.huertoaplicaciones.viewmodel.SectorViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -21,13 +22,15 @@ class MainActivity : ComponentActivity() {
 
         val db = AppDatabase.getDatabase(applicationContext)
         lifecycleScope.launch { cargarDatosIniciales(db) }
+
         val authViewModel = ViewModelProvider(
             this, AuthViewModelFactory(db.usuarioDao())
         )[AuthViewModel::class.java]
+        val sectorViewModel = ViewModelProvider(this)[SectorViewModel::class.java]
 
         setContent {
             HuertoAplicacionesTheme {
-                AppNavigation(authViewModel)
+                AppNavigation(authViewModel, sectorViewModel)
             }
         }
     }
