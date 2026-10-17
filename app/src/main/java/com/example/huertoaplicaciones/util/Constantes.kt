@@ -38,3 +38,15 @@ object EstadoProblema {
     const val ATENDIDO = "Atendido"
     const val CERRADO = "Cerrado"
 }
+
+object TipoTarea {
+    const val PREPARACION = "Preparación del sector"
+    const val SIEMBRA = "Siembra"
+    const val TRASPLANTE = "Trasplante"
+    const val RIEGO = "Riego"
+    const val LIMPIEZA = "Limpieza"
+    const val MALEZAS = "Retiro de malezas"
+    const val OBSERVACION = "Observación del cultivo"
+    const val MANTENIMIENTO = "Mantenimiento"
+    const val COSECHA = "Cosecha"
+}
