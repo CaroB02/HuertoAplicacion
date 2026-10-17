@@ -6,6 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.huertoaplicaciones.ui.screens.CultivoFormScreen
+import com.example.huertoaplicaciones.ui.screens.CultivoListScreen
 import com.example.huertoaplicaciones.ui.screens.HomeAdminScreen
 import com.example.huertoaplicaciones.ui.screens.HomeEstudianteScreen
 import com.example.huertoaplicaciones.ui.screens.LoginScreen
@@ -13,6 +15,7 @@ import com.example.huertoaplicaciones.ui.screens.SectorFormScreen
 import com.example.huertoaplicaciones.ui.screens.SectorListScreen
 import com.example.huertoaplicaciones.util.Perfil
 import com.example.huertoaplicaciones.viewmodel.AuthViewModel
+import com.example.huertoaplicaciones.viewmodel.CultivoViewModel
 import com.example.huertoaplicaciones.viewmodel.SectorViewModel
 
 object Rutas {
@@ -21,12 +24,15 @@ object Rutas {
     const val HOME_ESTUDIANTE = "home_estudiante"
     const val SECTORES = "sectores"
     const val SECTOR_FORM = "sector_form"
+    const val CULTIVOS = "cultivos"
+    const val CULTIVO_FORM = "cultivo_form"
 }
 
 @Composable
 fun AppNavigation(
     authViewModel: AuthViewModel,
-    sectorViewModel: SectorViewModel
+    sectorViewModel: SectorViewModel,
+    cultivoViewModel: CultivoViewModel
 ) {
     val navController = rememberNavController()
     val uiState by authViewModel.uiState.collectAsState()
@@ -52,6 +58,7 @@ fun AppNavigation(
             HomeAdminScreen(
                 nombre = nombre,
                 onIrASectores = { navController.navigate(Rutas.SECTORES) },
+                onIrACultivos = { navController.navigate(Rutas.CULTIVOS) },
                 onCerrarSesion = cerrarSesion
             )
         }
@@ -79,6 +86,31 @@ fun AppNavigation(
             if (esAdmin) {
                 SectorFormScreen(
                     viewModel = sectorViewModel,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+        }
+        composable(Rutas.CULTIVOS) {
+            if (esAdmin) {
+                CultivoListScreen(
+                    viewModel = cultivoViewModel,
+                    onNuevo = {
+                        cultivoViewModel.nuevoCultivo()
+                        navController.navigate(Rutas.CULTIVO_FORM)
+                    },
+                    onEditar = { id ->
+                        cultivoViewModel.nuevoCultivo()
+                        cultivoViewModel.cargarCultivo(id)
+                        navController.navigate(Rutas.CULTIVO_FORM)
+                    },
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+        }
+        composable(Rutas.CULTIVO_FORM) {
+            if (esAdmin) {
+                CultivoFormScreen(
+                    viewModel = cultivoViewModel,
                     onVolver = { navController.popBackStack() }
                 )
             }

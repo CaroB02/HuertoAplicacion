@@ -57,6 +57,7 @@ private fun PanelBase(
 fun HomeAdminScreen(
     nombre: String,
     onIrASectores: () -> Unit,
+    onIrACultivos: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     PanelBase(
@@ -67,6 +68,10 @@ fun HomeAdminScreen(
     ) {
         Button(onClick = onIrASectores, modifier = Modifier.fillMaxWidth()) {
             Text("Gestionar sectores")
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = onIrACultivos, modifier = Modifier.fillMaxWidth()) {
+            Text("Gestionar cultivos")
         }
     }
 }

@@ -1,12 +1,14 @@
 package com.example.huertoaplicaciones.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 fun CampoTexto(
@@ -16,7 +18,8 @@ fun CampoTexto(
     hayError: Boolean,
     mensajeError: String,
     onCambio: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tipoTeclado: KeyboardType = KeyboardType.Text
 ) {
     OutlinedTextField(
         value = valor,
@@ -33,6 +36,7 @@ fun CampoTexto(
         isError = hayError,
         supportingText = { if (hayError) Text(mensajeError) },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = tipoTeclado),
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.onSurface,
             focusedBorderColor = MaterialTheme.colorScheme.primary

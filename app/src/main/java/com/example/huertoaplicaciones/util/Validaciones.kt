@@ -7,3 +7,5 @@ fun validarCorreo(correo: String): Boolean =
 
 fun validarNumeroPositivo(texto: String): Boolean =
     texto.toIntOrNull()?.let { it > 0 } ?: false
+
+fun validarFecha(texto: String): Boolean = parsearFecha(texto) != null
