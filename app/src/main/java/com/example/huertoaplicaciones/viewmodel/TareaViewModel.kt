@@ -122,6 +122,7 @@ class TareaViewModel(application: Application) : AndroidViewModel(application) {
     val accionHecha: StateFlow<Boolean> = _accionHecha.asStateFlow()
 
     fun seleccionar(id: Long) {
+        _seleccionada.value = null
         _accionHecha.value = false
         _errorComentario.value = false
         viewModelScope.launch { _seleccionada.value = repository.obtenerPorId(id) }

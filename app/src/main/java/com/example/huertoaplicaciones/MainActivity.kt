@@ -14,6 +14,7 @@ import com.example.huertoaplicaciones.viewmodel.AuthViewModel
 import com.example.huertoaplicaciones.viewmodel.AuthViewModelFactory
 import com.example.huertoaplicaciones.viewmodel.CultivoViewModel
 import com.example.huertoaplicaciones.viewmodel.SectorViewModel
+import com.example.huertoaplicaciones.viewmodel.TareaViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -29,10 +30,11 @@ class MainActivity : ComponentActivity() {
         )[AuthViewModel::class.java]
         val sectorViewModel = ViewModelProvider(this)[SectorViewModel::class.java]
         val cultivoViewModel = ViewModelProvider(this)[CultivoViewModel::class.java]
+        val tareaViewModel = ViewModelProvider(this)[TareaViewModel::class.java]
 
         setContent {
             HuertoAplicacionesTheme {
-                AppNavigation(authViewModel, sectorViewModel, cultivoViewModel)
+                AppNavigation(authViewModel, sectorViewModel, cultivoViewModel, tareaViewModel)
             }
         }
     }

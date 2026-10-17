@@ -58,12 +58,13 @@ fun HomeAdminScreen(
     nombre: String,
     onIrASectores: () -> Unit,
     onIrACultivos: () -> Unit,
+    onIrATareas: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     PanelBase(
         titulo = "Panel del docente",
         saludo = "Hola, $nombre",
-        descripcion = "Aquí irán sectores, cultivos, tareas y validaciones",
+        descripcion = "Gestiona el huerto y revisa el trabajo de los estudiantes",
         onCerrarSesion = onCerrarSesion
     ) {
         Button(onClick = onIrASectores, modifier = Modifier.fillMaxWidth()) {
@@ -73,15 +74,27 @@ fun HomeAdminScreen(
         Button(onClick = onIrACultivos, modifier = Modifier.fillMaxWidth()) {
             Text("Gestionar cultivos")
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = onIrATareas, modifier = Modifier.fillMaxWidth()) {
+            Text("Gestionar tareas")
+        }
     }
 }
 
 @Composable
-fun HomeEstudianteScreen(nombre: String, onCerrarSesion: () -> Unit) {
+fun HomeEstudianteScreen(
+    nombre: String,
+    onIrAMisTareas: () -> Unit,
+    onCerrarSesion: () -> Unit
+) {
     PanelBase(
         titulo = "Panel del estudiante",
         saludo = "Hola, $nombre",
-        descripcion = "Aquí irán mis tareas y reportes de problemas",
+        descripcion = "Revisa tus tareas del huerto y marca las que ya hiciste",
         onCerrarSesion = onCerrarSesion
-    )
+    ) {
+        Button(onClick = onIrAMisTareas, modifier = Modifier.fillMaxWidth()) {
+            Text("Mis tareas")
+        }
+    }
 }
