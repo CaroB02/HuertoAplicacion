@@ -1,5 +1,7 @@
 package com.example.huertoaplicaciones.ui.screens
 
+import androidx.compose.material.icons.filled.Checklist
+import com.example.huertoaplicaciones.ui.components.SeccionTitulo
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +20,7 @@ import com.example.huertoaplicaciones.util.estadoMostrado
 import com.example.huertoaplicaciones.viewmodel.TareaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
+// Lista de tareas del ESTUDIANTE. Solo aparecen las asignadas a él (la consulta filtra por su id).
 @Composable
 fun MisTareasScreen(
     viewModel: TareaViewModel,
@@ -25,10 +28,12 @@ fun MisTareasScreen(
     onAbrir: (Long) -> Unit,
     onVolver: () -> Unit
 ) {
+    // remember(usuario.id): creo el Flow una sola vez para este usuario (no en cada redibujado).
     val flujo = remember(usuario.id) { viewModel.tareasDeEstudiante(usuario.id) }
     val tareas by flujo.collectAsState(initial = emptyList<Tarea>())
     val cultivos by viewModel.cultivos.collectAsState()
 
+    // Cuento las tareas que todavía requieren acción del estudiante (pendientes, atrasadas o rechazadas).
     val porHacer = tareas.count {
         val e = estadoMostrado(it)
         e == EstadoTarea.PENDIENTE || e == EstadoTarea.EN_DESARROLLO ||
@@ -38,6 +43,7 @@ fun MisTareasScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 title = { Text("Mis tareas") },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
@@ -61,7 +67,8 @@ fun MisTareasScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    Text("Tareas por hacer: $porHacer", style = MaterialTheme.typography.labelLarge)
+                    // Encabezado con ícono y la cantidad de tareas que el estudiante todavía debe trabajar.
+                    SeccionTitulo(Icons.Default.Checklist, "Tareas por hacer: $porHacer")
                 }
                 items(tareas, key = { it.id }) { tarea ->
                     val cultivo = cultivos.firstOrNull { it.id == tarea.cultivoId }?.nombre ?: "Cultivo"

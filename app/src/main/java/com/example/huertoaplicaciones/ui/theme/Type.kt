@@ -6,6 +6,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+// TIPOGRAFÍA de la app (tamaños y estilos de texto). Está casi como la crea Android Studio:
+// solo personalicé el texto de cuerpo (bodyLarge). El resto usa los valores por defecto de Material 3.
 // Set of Material typography styles to start with
 val Typography = Typography(
     bodyLarge = TextStyle(

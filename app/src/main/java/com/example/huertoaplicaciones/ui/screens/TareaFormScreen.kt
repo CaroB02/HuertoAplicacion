@@ -1,5 +1,6 @@
 package com.example.huertoaplicaciones.ui.screens
 
+import com.example.huertoaplicaciones.ui.components.CampoFecha
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +21,9 @@ import com.example.huertoaplicaciones.util.TipoTarea
 import com.example.huertoaplicaciones.viewmodel.TareaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
+// Formulario para CREAR, EDITAR y ASIGNAR una tarea (solo docente). Se elige tipo, sector, cultivo y
+// estudiante responsable. Las reglas (campos obligatorios, responsable válido, cultivo del sector)
+// las valida el TareaViewModel, no esta pantalla.
 @Composable
 fun TareaFormScreen(
     viewModel: TareaViewModel,
@@ -35,12 +39,14 @@ fun TareaFormScreen(
         if (form.guardado) onVolver()
     }
 
+    // Solo ofrezco los cultivos del sector elegido (un cultivo pertenece a un único sector).
     val cultivosDelSector = cultivos.filter { it.sectorId == form.sectorId }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nueva tarea") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                title = { Text(if (form.id == 0L) "Nueva tarea" else "Editar tarea") },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -61,11 +67,7 @@ fun TareaFormScreen(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(
-                    TipoTarea.RIEGO, TipoTarea.SIEMBRA, TipoTarea.TRASPLANTE,
-                    TipoTarea.PREPARACION, TipoTarea.LIMPIEZA, TipoTarea.MALEZAS,
-                    TipoTarea.OBSERVACION, TipoTarea.MANTENIMIENTO, TipoTarea.COSECHA
-                ).forEach { tipo ->
+                TipoTarea.todos.forEach { tipo ->
                     FilterChip(
                         selected = form.tipo == tipo,
                         onClick = { viewModel.cambiarTipo(tipo) },
@@ -82,7 +84,7 @@ fun TareaFormScreen(
             CampoTexto(
                 valor = form.instrucciones, etiqueta = "Instrucciones para el estudiante",
                 icono = Icons.Default.Info,
-                hayError = form.errorInstrucciones, mensajeError = "Las instrucciones son obligatorias",
+                hayError = form.errorInstrucciones, mensajeError = "Obligatorias (máx. 300 caracteres)",
                 onCambio = { viewModel.cambiarInstrucciones(it) }
             )
 
@@ -106,6 +108,7 @@ fun TareaFormScreen(
             if (form.errorSector) TextoError("Seleccione un sector")
 
             Text("Cultivo", style = MaterialTheme.typography.labelLarge)
+            // Tres casos para el selector de cultivo: sin sector elegido, sector sin cultivos, o lista normal.
             when {
                 form.sectorId == null -> Text("Elige primero un sector")
                 cultivosDelSector.isEmpty() ->
@@ -144,19 +147,22 @@ fun TareaFormScreen(
             }
             if (form.errorEstudiante) TextoError("Seleccione un estudiante")
 
-            CampoTexto(
-                valor = form.fechaProgramada, etiqueta = "Fecha programada (dd/mm/aaaa)",
-                icono = Icons.Default.DateRange,
-                hayError = form.errorFecha, mensajeError = "Use el formato dd/mm/aaaa",
-                onCambio = { viewModel.cambiarFecha(it) }
+            // La fecha se elige en un calendario (no se escribe a mano), así no hay errores de formato.
+            CampoFecha(
+                valor = form.fechaProgramada, etiqueta = "Fecha programada",
+                hayError = form.errorFecha,
+                mensajeError = "Elige una fecha de hoy en adelante",
+                onCambio = { viewModel.cambiarFecha(it) },
+                desdeHoy = true     // los días anteriores a hoy quedan desactivados en el calendario
             )
 
             Spacer(modifier = Modifier.height(8.dp))
             Button(
+                // El botón sirve para crear y para guardar cambios; el ViewModel distingue por el id del formulario.
                 onClick = { viewModel.guardar(usuario) },
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
-                Text("Crear y asignar tarea")
+                Text(if (form.id == 0L) "Crear y asignar tarea" else "Guardar cambios")
             }
         }
     }
