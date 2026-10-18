@@ -10,7 +10,7 @@ Reemplaza la coordinación verbal por un registro central de sectores, cultivos,
 
 ## Planificación y control de versiones
 
-- **Trello (planificación y distribución de tareas):** _pegar aquí el enlace del tablero_
+- **Trello (planificación y distribución de tareas):** https://trello.com/b/kwsPPgBP/huerto-escolar
 - **GitHub (código y commits):** https://github.com/CaroB02/HuertoAplicacion
 
 El tablero de Trello está compartido con el docente y con ambos integrantes.
