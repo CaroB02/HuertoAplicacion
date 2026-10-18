@@ -5,8 +5,8 @@ Reemplaza la coordinación verbal por un registro central de sectores, cultivos,
 
 ## Integrantes
 
-- _Integrante 1: completar nombre_
-- _Integrante 2: completar nombre_
+- Carolina Belén Bravo Bravo
+- Jorge Alejandro Carmona González
 
 ## Planificación y control de versiones
 
