@@ -20,6 +20,10 @@ data class SectorFormUiState(
     val errorDescripcion: Boolean = false,
     val errorUbicacion: Boolean = false,
 
+    // Estados de la comunicación con el servidor (igual que ClienteFormState en clase):
+    val cargando: Boolean = false,          // trayendo el sector a editar (GET)
+    val guardando: Boolean = false,         // enviando el POST o PUT
+
     // Pasa a true cuando se guardó bien: la pantalla lo detecta y vuelve a la lista.
     val guardado: Boolean = false
 )

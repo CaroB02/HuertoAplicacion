@@ -1,18 +1,19 @@
 package com.example.huertoaplicaciones.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.huertoaplicaciones.data.AppDatabase
 import com.example.huertoaplicaciones.data.entity.Cultivo
 import com.example.huertoaplicaciones.data.entity.LecturaSensor
 import com.example.huertoaplicaciones.data.entity.Sector
 import com.example.huertoaplicaciones.data.repository.CultivoRepository
 import com.example.huertoaplicaciones.data.repository.LecturaSensorRepository
+import com.example.huertoaplicaciones.data.repository.Repositorios
 import com.example.huertoaplicaciones.data.repository.SectorRepository
+import com.example.huertoaplicaciones.data.remote.describirError
 import com.example.huertoaplicaciones.util.Limites
 import com.example.huertoaplicaciones.util.Mensajes
 import com.example.huertoaplicaciones.util.validarTexto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,15 +27,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // ViewModel de los sectores. Maneja tres cosas: la lista, el detalle de un sector y el formulario.
-class SectorViewModel(application: Application) : AndroidViewModel(application) {
+// Los repositorios llegan por el constructor con un valor por defecto (igual que en clase):
+// la app usa los repositorios reales (Retrofit) y las pruebas unitarias le pasan unos simulados (MockK).
+class SectorViewModel(
+    private val repository: SectorRepository = Repositorios.sectores,
+    private val cultivoRepository: CultivoRepository = Repositorios.cultivos,
+    private val lecturaRepository: LecturaSensorRepository = Repositorios.lecturas
+) : ViewModel() {
 
-    private val db = AppDatabase.getDatabase(application)
-    private val repository = SectorRepository(db.sectorDao())
-    private val cultivoRepository = CultivoRepository(db.cultivoDao())
-    private val lecturaRepository = LecturaSensorRepository(db.lecturaSensorDao())
-
-    // La lista de sectores. stateIn convierte el Flow de la base en un StateFlow:
-    // cada vez que se crea o edita un sector, esta lista cambia y la pantalla se actualiza sola.
+    // La lista de sectores. stateIn convierte el Flow del repositorio en un StateFlow:
+    // cada vez que llega una lista nueva del servidor, la pantalla se actualiza sola.
     val sectores: StateFlow<List<Sector>> = repository.obtenerTodos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -65,11 +67,35 @@ class SectorViewModel(application: Application) : AndroidViewModel(application) 
 
     fun seleccionarSector(id: Long) { _sectorSeleccionadoId.value = id }
 
+    // Pide al servidor los datos actualizados (GET /sectores, /cultivos y /lecturas).
+    // AppNavigation la llama con LifecycleEventEffect(ON_RESUME) cada vez que se vuelve a la pantalla.
+    fun recargar() {
+        viewModelScope.launch {
+            try {
+                repository.recargar()
+                cultivoRepository.recargar()
+                lecturaRepository.recargar()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error(describirError(e))
+            }
+        }
+    }
+
     // Elimina un sector. "alTerminar" es una función que me pasa la pantalla para avisarle
     // si salió bien (true) o no (false), y así decidir si vuelve atrás.
     fun eliminarSector(sector: Sector, alTerminar: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val eliminado = repository.eliminar(sector)
+            val eliminado = try {
+                repository.eliminar(sector)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error("No se pudo eliminar el sector: ${describirError(e)}")
+                alTerminar(false)
+                return@launch
+            }
             if (eliminado) Mensajes.exito("Sector eliminado")
             else Mensajes.error(
                 "No se puede eliminar: el sector tiene cultivos, tareas o reportes asociados"
@@ -88,16 +114,29 @@ class SectorViewModel(application: Application) : AndroidViewModel(application) 
         _form.value = SectorFormUiState()
     }
 
-    // Para EDITAR: cargo el sector desde la base y relleno el formulario con sus datos.
+    // Para EDITAR: pido el sector al servidor (GET /sectores/{id}) y relleno el formulario con sus datos.
+    // Mientras llega, cargando = true y la pantalla muestra un indicador de progreso.
     fun cargarSector(id: Long) {
         viewModelScope.launch {
-            repository.obtenerPorId(id)?.let { s ->
-                _form.value = SectorFormUiState(
-                    id = s.id, codigo = s.codigo, nombre = s.nombre,
-                    descripcion = s.descripcion, ubicacion = s.ubicacion,
-                    estado = s.estado, responsableId = s.responsableId,
-                    fechaCreacion = s.fechaCreacion
-                )
+            _form.update { it.copy(cargando = true) }
+            try {
+                val s = repository.obtenerPorId(id)
+                if (s == null) {
+                    Mensajes.error("El sector ya no existe")
+                    _form.update { it.copy(cargando = false) }
+                } else {
+                    _form.value = SectorFormUiState(
+                        id = s.id, codigo = s.codigo, nombre = s.nombre,
+                        descripcion = s.descripcion, ubicacion = s.ubicacion,
+                        estado = s.estado, responsableId = s.responsableId,
+                        fechaCreacion = s.fechaCreacion
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _form.update { it.copy(cargando = false) }
+                Mensajes.error("No se pudo cargar el sector: ${describirError(e)}")
             }
         }
     }
@@ -121,6 +160,8 @@ class SectorViewModel(application: Application) : AndroidViewModel(application) 
     // Al presionar "Guardar": reviso TODOS los campos de una vez y recién ahí decido si guardo.
     fun guardar() {
         val f = _form.value
+        // Si ya está guardando (doble toque en el botón) no envío la petición dos veces
+        if (f.guardando || f.cargando || f.guardado) return
         val eCodigo = !validarTexto(f.codigo, Limites.CODIGO)
         val eNombre = !validarTexto(f.nombre, Limites.NOMBRE)
         val eDescripcion = !validarTexto(f.descripcion, Limites.DESCRIPCION)
@@ -141,8 +182,9 @@ class SectorViewModel(application: Application) : AndroidViewModel(application) 
 
         val ahora = System.currentTimeMillis()
         viewModelScope.launch {
+            _form.update { it.copy(guardando = true) }
             try {
-                // id == 0 significa sector nuevo (INSERT); si no, es una edición (UPDATE).
+                // id == 0 significa sector nuevo (POST); si no, es una edición (PUT).
                 if (f.id == 0L) {
                     repository.guardar(
                         Sector(
@@ -165,8 +207,12 @@ class SectorViewModel(application: Application) : AndroidViewModel(application) 
                 Mensajes.exito(if (f.id == 0L) "Sector creado" else "Sector actualizado")
                 // guardado = true: la pantalla lo detecta y vuelve a la lista.
                 _form.update { it.copy(guardado = true) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Mensajes.error("No se pudo guardar el sector")
+                Mensajes.error("No se pudo guardar el sector: ${describirError(e)}")
+            } finally {
+                _form.update { it.copy(guardando = false) }
             }
         }
     }

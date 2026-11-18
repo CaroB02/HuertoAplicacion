@@ -7,7 +7,8 @@ import com.example.huertoaplicaciones.data.repository.UsuarioRepository
 // FACTORY = la "fábrica" que sabe cómo crear el AuthViewModel.
 // Android crea los ViewModels solo cuando no tienen parámetros. Como AuthViewModel necesita un
 // UsuarioRepository, tengo que explicarle a Android cómo construirlo: eso hace esta clase.
-// (Los otros ViewModels reciben solo "Application", que Android sí sabe entregar, y no necesitan fábrica.)
+// (Los otros ViewModels tienen valores por defecto en TODOS sus parámetros, así Kotlin genera un
+// constructor vacío que Android sí sabe usar, y no necesitan fábrica.)
 class AuthViewModelFactory(
     private val usuarioRepository: UsuarioRepository
 ) : ViewModelProvider.Factory {

@@ -1,12 +1,12 @@
 package com.example.huertoaplicaciones.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.huertoaplicaciones.data.AppDatabase
 import com.example.huertoaplicaciones.data.entity.Cultivo
 import com.example.huertoaplicaciones.data.entity.Sector
+import com.example.huertoaplicaciones.data.remote.describirError
 import com.example.huertoaplicaciones.data.repository.CultivoRepository
+import com.example.huertoaplicaciones.data.repository.Repositorios
 import com.example.huertoaplicaciones.data.repository.SectorRepository
 import com.example.huertoaplicaciones.util.Limites
 import com.example.huertoaplicaciones.util.Mensajes
@@ -15,6 +15,7 @@ import com.example.huertoaplicaciones.util.parsearFecha
 import com.example.huertoaplicaciones.util.validarFecha
 import com.example.huertoaplicaciones.util.validarNumeroPositivo
 import com.example.huertoaplicaciones.util.validarTexto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,11 +26,10 @@ import kotlinx.coroutines.launch
 
 // ViewModel de los cultivos: la lista y el formulario de crear/editar.
 // Tiene las validaciones más delicadas del proyecto: las fechas (cosecha no puede ser antes de la siembra).
-class CultivoViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val db = AppDatabase.getDatabase(application)
-    private val repository = CultivoRepository(db.cultivoDao())
-    private val sectorRepository = SectorRepository(db.sectorDao())
+class CultivoViewModel(
+    private val repository: CultivoRepository = Repositorios.cultivos,
+    private val sectorRepository: SectorRepository = Repositorios.sectores
+) : ViewModel() {
 
     val cultivos: StateFlow<List<Cultivo>> = repository.obtenerTodos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -41,6 +41,20 @@ class CultivoViewModel(application: Application) : AndroidViewModel(application)
     private val _form = MutableStateFlow(CultivoFormUiState())
     val form: StateFlow<CultivoFormUiState> = _form.asStateFlow()
 
+    // GET /cultivos y GET /sectores. Se llama al volver a la pantalla (LifecycleEventEffect ON_RESUME).
+    fun recargar() {
+        viewModelScope.launch {
+            try {
+                repository.recargar()
+                sectorRepository.recargar()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error(describirError(e))
+            }
+        }
+    }
+
     fun nuevoCultivo() {
         _form.value = CultivoFormUiState()
     }
@@ -49,7 +63,15 @@ class CultivoViewModel(application: Application) : AndroidViewModel(application)
     // (las fechas Long pasan a texto dd/mm/aaaa y el número a String).
     fun cargarCultivo(id: Long) {
         viewModelScope.launch {
-            repository.obtenerPorId(id)?.let { c ->
+            val cultivo = try {
+                repository.obtenerPorId(id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error("No se pudo cargar el cultivo: ${describirError(e)}")
+                null
+            }
+            cultivo?.let { c ->
                 _form.value = CultivoFormUiState(
                     id = c.id,
                     nombre = c.nombre,
@@ -126,7 +148,7 @@ class CultivoViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
 
-    // Al presionar "Guardar": reviso todo junto, y solo si no hay ningún error escribo en la base.
+    // Al presionar "Guardar": reviso todo junto, y solo si no hay ningún error lo envío al servidor.
     fun guardar() {
         val f = _form.value
         val eNombre = !validarTexto(f.nombre, Limites.NOMBRE)
@@ -173,12 +195,14 @@ class CultivoViewModel(application: Application) : AndroidViewModel(application)
                     observaciones = f.observaciones.trim(),
                     fotoUri = f.fotoUri
                 )
-                // id == 0 = cultivo nuevo (insertar); si no, edición (actualizar).
+                // id == 0 = cultivo nuevo (POST); si no, edición (PUT).
                 if (f.id == 0L) repository.guardar(cultivo) else repository.actualizar(cultivo)
                 Mensajes.exito(if (f.id == 0L) "Cultivo registrado" else "Cultivo actualizado")
                 _form.update { it.copy(guardado = true) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Mensajes.error("No se pudo guardar el cultivo")
+                Mensajes.error("No se pudo guardar el cultivo: ${describirError(e)}")
             }
         }
     }
@@ -186,8 +210,16 @@ class CultivoViewModel(application: Application) : AndroidViewModel(application)
     // Elimina un cultivo; "alTerminar" le avisa a la pantalla si se pudo (true) o no (false).
     fun eliminarCultivo(id: Long, alTerminar: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val cultivo = repository.obtenerPorId(id)
-            val eliminado = cultivo != null && repository.eliminar(cultivo)
+            val eliminado = try {
+                val cultivo = repository.obtenerPorId(id)
+                cultivo != null && repository.eliminar(cultivo)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error("No se pudo eliminar el cultivo: ${describirError(e)}")
+                alTerminar(false)
+                return@launch
+            }
             if (eliminado) Mensajes.exito("Cultivo eliminado")
             else Mensajes.error("No se puede eliminar: el cultivo tiene tareas o reportes asociados")
             alTerminar(eliminado)

@@ -1,10 +1,10 @@
 package com.example.huertoaplicaciones.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.huertoaplicaciones.data.AppDatabase
 import com.example.huertoaplicaciones.data.entity.Usuario
+import com.example.huertoaplicaciones.data.remote.describirError
+import com.example.huertoaplicaciones.data.repository.Repositorios
 import com.example.huertoaplicaciones.data.repository.UsuarioRepository
 import com.example.huertoaplicaciones.util.CODIGO_DOCENTE
 import com.example.huertoaplicaciones.util.Limites
@@ -14,6 +14,7 @@ import com.example.huertoaplicaciones.util.validarClave
 import com.example.huertoaplicaciones.util.validarCorreo
 import com.example.huertoaplicaciones.util.validarNombreCompleto
 import com.example.huertoaplicaciones.util.validarTexto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,9 +44,9 @@ data class RegistroUiState(
 )
 
 // ViewModel de "Crear cuenta". Valida el formulario, comprueba las reglas de seguridad y crea el usuario.
-class RegistroViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val repository = UsuarioRepository(AppDatabase.getDatabase(application).usuarioDao())
+class RegistroViewModel(
+    private val repository: UsuarioRepository = Repositorios.usuarios
+) : ViewModel() {
 
     private val _estado = MutableStateFlow(RegistroUiState())
     val estado: StateFlow<RegistroUiState> = _estado.asStateFlow()
@@ -111,13 +112,15 @@ class RegistroViewModel(application: Application) : AndroidViewModel(application
         val correo = f.correo.trim().lowercase()
         _estado.update { it.copy(guardando = true) }
         viewModelScope.launch {
-            // Si ya existe una cuenta con ese correo, aviso y no intento guardar.
-            if (repository.obtenerPorCorreo(correo) != null) {
-                _estado.update { it.copy(guardando = false, correoRepetido = true) }
-                Mensajes.error("Ya existe una cuenta con ese correo")
-                return@launch
-            }
             try {
+                // Si ya existe una cuenta con ese correo, aviso y no intento guardar.
+                // (GET /usuarios/buscar?correo=... responde 404 cuando NO existe)
+                if (repository.obtenerPorCorreo(correo) != null) {
+                    _estado.update { it.copy(guardando = false, correoRepetido = true) }
+                    Mensajes.error("Ya existe una cuenta con ese correo")
+                    return@launch
+                }
+                // POST /usuarios
                 repository.registrar(
                     Usuario(
                         nombre = f.nombre.trim().split(" ").filter { it.isNotBlank() }.joinToString(" "),
@@ -130,9 +133,11 @@ class RegistroViewModel(application: Application) : AndroidViewModel(application
                 )
                 Mensajes.exito("Cuenta creada. Ya puedes iniciar sesión")
                 _estado.update { it.copy(guardando = false, registrado = true) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _estado.update { it.copy(guardando = false) }
-                Mensajes.error("No se pudo crear la cuenta")
+                Mensajes.error("No se pudo crear la cuenta: ${describirError(e)}")
             }
         }
     }

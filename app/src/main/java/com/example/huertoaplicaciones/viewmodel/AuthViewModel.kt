@@ -2,8 +2,10 @@ package com.example.huertoaplicaciones.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.huertoaplicaciones.data.remote.describirError
 import com.example.huertoaplicaciones.data.repository.UsuarioRepository
 import com.example.huertoaplicaciones.util.validarCorreo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +50,7 @@ class AuthViewModel(
         }
     }
 
-    // Consulta en Room si existe un usuario activo con ese correo y contraseña
+    // Consulta al microservicio si existe un usuario activo con ese correo y contraseña
     fun iniciarSesion() {
         val currentState = _uiState.value
 
@@ -68,19 +70,28 @@ class AuthViewModel(
             // Enciendo el indicador de carga (la ruedita del botón).
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            val usuario = usuarioRepository.iniciarSesion(
-                // Los correos se guardan en minúscula, así "Matias@..." y "matias@..." son la misma cuenta.
-                currentState.emailInput.trim().lowercase(),
-                currentState.passwordInput
-            )
+            try {
+                // POST /usuarios/login al microservicio ms-usuarios
+                val usuario = usuarioRepository.iniciarSesion(
+                    // Los correos se guardan en minúscula, así "Matias@..." y "matias@..." son la misma cuenta.
+                    currentState.emailInput.trim().lowercase(),
+                    currentState.passwordInput
+                )
 
-            // Si encontró al usuario guardo quién es (la navegación reacciona a esto); si no, muestro el error.
-            if (usuario != null) {
-                _uiState.update { it.copy(isLoading = false, usuarioLogueado = usuario) }
-            } else {
-                _uiState.update {
-                    it.copy(isLoading = false, errorMessage = "Correo o contraseña incorrectos")
+                // Si encontró al usuario guardo quién es (la navegación reacciona a esto); si no, muestro el error.
+                if (usuario != null) {
+                    _uiState.update { it.copy(isLoading = false, usuarioLogueado = usuario) }
+                } else {
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = "Correo o contraseña incorrectos")
+                    }
                 }
+            } catch (e: CancellationException) {
+                // La corrutina se canceló (por ejemplo se cerró la pantalla): se deja propagar
+                throw e
+            } catch (e: Exception) {
+                // Sin conexión con el microservicio: aviso en vez de que la app se cierre
+                _uiState.update { it.copy(isLoading = false, errorMessage = describirError(e)) }
             }
         }
     }
