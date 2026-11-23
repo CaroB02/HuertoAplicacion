@@ -1,15 +1,15 @@
 package com.example.huertoaplicaciones.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.huertoaplicaciones.data.AppDatabase
 import com.example.huertoaplicaciones.data.entity.Cultivo
 import com.example.huertoaplicaciones.data.entity.Problema
 import com.example.huertoaplicaciones.data.entity.Sector
 import com.example.huertoaplicaciones.data.entity.Usuario
+import com.example.huertoaplicaciones.data.remote.describirError
 import com.example.huertoaplicaciones.data.repository.CultivoRepository
 import com.example.huertoaplicaciones.data.repository.ProblemaRepository
+import com.example.huertoaplicaciones.data.repository.Repositorios
 import com.example.huertoaplicaciones.data.repository.SectorRepository
 import com.example.huertoaplicaciones.data.repository.UsuarioRepository
 import com.example.huertoaplicaciones.util.EstadoProblema
@@ -18,6 +18,7 @@ import com.example.huertoaplicaciones.util.Mensajes
 import com.example.huertoaplicaciones.util.Perfil
 import com.example.huertoaplicaciones.util.TipoProblema
 import com.example.huertoaplicaciones.util.validarTexto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,13 +44,12 @@ data class ProblemaFormUiState(
 )
 
 // ViewModel de los reportes de problemas: lista, formulario y seguimiento del docente.
-class ProblemaViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val db = AppDatabase.getDatabase(application)
-    private val repository = ProblemaRepository(db.problemaDao())
-    private val sectorRepository = SectorRepository(db.sectorDao())
-    private val cultivoRepository = CultivoRepository(db.cultivoDao())
-    private val usuarioRepository = UsuarioRepository(db.usuarioDao())
+class ProblemaViewModel(
+    private val repository: ProblemaRepository = Repositorios.problemas,
+    private val sectorRepository: SectorRepository = Repositorios.sectores,
+    private val cultivoRepository: CultivoRepository = Repositorios.cultivos,
+    private val usuarioRepository: UsuarioRepository = Repositorios.usuarios
+) : ViewModel() {
 
     // El docente ve todos los reportes
     // stateIn(...) convierte el Flow del repositorio en un StateFlow que la pantalla puede observar,
@@ -69,6 +69,22 @@ class ProblemaViewModel(application: Application) : AndroidViewModel(application
 
     val usuarios: StateFlow<List<Usuario>> = usuarioRepository.obtenerTodos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // GET /problemas, /sectores, /cultivos y /usuarios. Se llama al volver a la pantalla de reportes.
+    fun recargar() {
+        viewModelScope.launch {
+            try {
+                repository.recargar()
+                sectorRepository.recargar()
+                cultivoRepository.recargar()
+                usuarioRepository.recargar()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error(describirError(e))
+            }
+        }
+    }
 
     // ---------- Formulario de reporte ----------
     private val _form = MutableStateFlow(ProblemaFormUiState())
@@ -111,15 +127,16 @@ class ProblemaViewModel(application: Application) : AndroidViewModel(application
         val cultivoId = f.cultivoId ?: return
 
         viewModelScope.launch {
-            // Regla de negocio: el cultivo debe pertenecer al sector elegido.
-            val cultivo = cultivoRepository.obtenerPorId(cultivoId)
-            if (cultivo == null || cultivo.sectorId != sectorId) {
-                _form.update { it.copy(errorCultivo = true) }
-                Mensajes.error("El cultivo seleccionado no pertenece a ese sector")
-                return@launch
-            }
-            // try/catch: si la base falla, aviso al usuario en vez de que la app se cierre.
+            // try/catch: si el servidor falla o no responde, aviso al usuario en vez de que la app se cierre.
             try {
+                // Regla de negocio: el cultivo debe pertenecer al sector elegido.
+                val cultivo = cultivoRepository.obtenerPorId(cultivoId)
+                if (cultivo == null || cultivo.sectorId != sectorId) {
+                    _form.update { it.copy(errorCultivo = true) }
+                    Mensajes.error("El cultivo seleccionado no pertenece a ese sector")
+                    return@launch
+                }
+                // POST /problemas
                 repository.guardar(
                     Problema(
                         sectorId = sectorId,
@@ -135,8 +152,10 @@ class ProblemaViewModel(application: Application) : AndroidViewModel(application
                 )
                 Mensajes.exito("Reporte enviado. El docente lo revisará")
                 _form.update { it.copy(guardado = true) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Mensajes.error("No se pudo enviar el reporte")
+                Mensajes.error("No se pudo enviar el reporte: ${describirError(e)}")
             }
         }
     }
@@ -165,8 +184,10 @@ class ProblemaViewModel(application: Application) : AndroidViewModel(application
                     )
                 )
                 Mensajes.exito("Reporte actualizado: $nuevoEstado")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Mensajes.error("No se pudo actualizar el reporte")
+                Mensajes.error("No se pudo actualizar el reporte: ${describirError(e)}")
             }
         }
         return true

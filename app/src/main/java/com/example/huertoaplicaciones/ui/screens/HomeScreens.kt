@@ -46,8 +46,9 @@ import com.example.huertoaplicaciones.viewmodel.PanelUiState
 
 // PanelBase es la estructura COMPARTIDA de los dos paneles (docente y estudiante). Así los dos se ven
 // parecidos y no repito código. Siempre tiene este orden:
-//   1) Banner de bienvenida  2) Resumen de tareas  3) Accesos (botones grandes con ícono)  4) Avisos
+//   1) Banner de bienvenida  2) Resumen de tareas  3) Clima (API externa)  4) Accesos  5) Avisos
 // Lo único que cambia entre roles son los accesos, que llegan por el parámetro "accesos".
+// "clima" es un espacio que AppNavigation rellena con la TarjetaClima.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PanelBase(
@@ -56,6 +57,7 @@ private fun PanelBase(
     subtitulo: String,
     panel: PanelUiState,
     onCerrarSesion: () -> Unit,
+    clima: @Composable () -> Unit,
     accesos: @Composable ColumnScope.() -> Unit
 ) {
     // Cada panel es una pantalla distinta según el rol: el dashboard del docente y el del estudiante
@@ -111,6 +113,7 @@ private fun PanelBase(
         ) {
             Banner(usuario, subtitulo)
             ResumenCard(panel.resumen)
+            clima()
             SeccionTitulo(Icons.Default.Apps, "¿Qué quieres hacer?")
             accesos()
             AvisosCard(panel.avisos)
@@ -400,14 +403,16 @@ fun HomeAdminScreen(
     onIrATareas: () -> Unit,
     onIrAReportes: () -> Unit,
     onIrAHistorial: () -> Unit,
-    onCerrarSesion: () -> Unit
+    onCerrarSesion: () -> Unit,
+    clima: @Composable () -> Unit = {}
 ) {
     PanelBase(
         titulo = "Panel del docente",
         usuario = usuario,
         subtitulo = "Gestiona el huerto y revisa el trabajo de tus estudiantes",
         panel = panel,
-        onCerrarSesion = onCerrarSesion
+        onCerrarSesion = onCerrarSesion,
+        clima = clima
     ) {
         // IntrinsicSize.Min hace que las dos tarjetas de una fila midan lo mismo de alto.
         Row(
@@ -454,7 +459,8 @@ fun HomeEstudianteScreen(
     onIrAMisTareas: () -> Unit,
     onIrAReportes: () -> Unit,
     onIrAHistorial: () -> Unit,
-    onCerrarSesion: () -> Unit
+    onCerrarSesion: () -> Unit,
+    clima: @Composable () -> Unit = {}
 ) {
     val r = panel.resumen
     PanelBase(
@@ -462,7 +468,8 @@ fun HomeEstudianteScreen(
         usuario = usuario,
         subtitulo = "¡Vamos a cuidar el huerto juntos!",
         panel = panel,
-        onCerrarSesion = onCerrarSesion
+        onCerrarSesion = onCerrarSesion,
+        clima = clima
     ) {
         Acceso(
             "Mis tareas", "Revisa lo que te toca y entrega tu trabajo con fotos",

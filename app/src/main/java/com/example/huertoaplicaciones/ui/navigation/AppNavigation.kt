@@ -20,13 +20,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.huertoaplicaciones.ui.components.TarjetaClima
 import com.example.huertoaplicaciones.ui.screens.*
 import com.example.huertoaplicaciones.util.Mensajes
 import com.example.huertoaplicaciones.util.Perfil
 import com.example.huertoaplicaciones.viewmodel.AuthViewModel
+import com.example.huertoaplicaciones.viewmodel.ClimaViewModel
 import com.example.huertoaplicaciones.viewmodel.CultivoViewModel
 import com.example.huertoaplicaciones.viewmodel.HistorialViewModel
 import com.example.huertoaplicaciones.viewmodel.PanelViewModel
@@ -58,6 +63,12 @@ object Rutas {
 
 // AppNavigation es el "director" de la app: decide qué pantalla se muestra y controla el ACCESO por perfil.
 // Recibe todos los ViewModels ya creados (se crean en MainActivity) y se los entrega a cada pantalla.
+//
+// RECARGA DE DATOS: con Room la lista se actualizaba sola, pero Retrofit NO avisa cuando cambian
+// los datos en el servidor. Por eso cada pantalla principal tiene:
+//     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.recargar() }
+// ON_RESUME ocurre al entrar a la pantalla y cada vez que se vuelve a ella (por ejemplo, después
+// de guardar un formulario), así siempre se muestra lo último que hay en los microservicios.
 // Estructura de Navigation Compose: NavController (controla la navegación) + NavHost (el contenedor
 // donde se dibuja la pantalla actual) + composable(ruta) { } (qué dibujar en cada ruta).
 @Composable
@@ -69,7 +80,8 @@ fun AppNavigation(
     problemaViewModel: ProblemaViewModel,
     panelViewModel: PanelViewModel,
     historialViewModel: HistorialViewModel,
-    registroViewModel: RegistroViewModel
+    registroViewModel: RegistroViewModel,
+    climaViewModel: ClimaViewModel
 ) {
     // rememberNavController guarda el estado de la navegación (la pila de pantallas visitadas).
     val navController = rememberNavController()
@@ -82,6 +94,11 @@ fun AppNavigation(
     val esAdmin = usuario?.perfil == Perfil.ADMIN
     val esEstudiante = usuario?.perfil == Perfil.ESTUDIANTE
     val panel by panelViewModel.estado.collectAsState()
+    // Estado de la API externa de clima (Cargando / Exito / Error)
+    val clima by climaViewModel.uiState.collectAsStateWithLifecycle()
+    val tarjetaClima: @Composable () -> Unit = {
+        TarjetaClima(estado = clima, onReintentar = { climaViewModel.cargarClima() })
+    }
 
     // LaunchedEffect ejecuta código cuando cambia la clave (aquí "usuario"): al iniciar o cerrar sesión
     // le aviso al panel y al historial quién es el usuario actual para que calculen sus datos.
@@ -146,6 +163,7 @@ fun AppNavigation(
                     )
                 }
                 composable(Rutas.HOME_ADMIN) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { panelViewModel.recargar() }
                     HomeAdminScreen(
                         usuario = usuario ?: return@composable,
                         panel = panel,
@@ -154,17 +172,20 @@ fun AppNavigation(
                         onIrATareas = { navController.navigate(Rutas.TAREAS) },
                         onIrAReportes = { navController.navigate(Rutas.REPORTES) },
                         onIrAHistorial = { navController.navigate(Rutas.HISTORIAL) },
-                        onCerrarSesion = cerrarSesion
+                        onCerrarSesion = cerrarSesion,
+                        clima = tarjetaClima
                     )
                 }
                 composable(Rutas.HOME_ESTUDIANTE) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { panelViewModel.recargar() }
                     HomeEstudianteScreen(
                         usuario = usuario ?: return@composable,
                         panel = panel,
                         onIrAMisTareas = { navController.navigate(Rutas.MIS_TAREAS) },
                         onIrAReportes = { navController.navigate(Rutas.REPORTES) },
                         onIrAHistorial = { navController.navigate(Rutas.HISTORIAL) },
-                        onCerrarSesion = cerrarSesion
+                        onCerrarSesion = cerrarSesion,
+                        clima = tarjetaClima
                     )
                 }
 
@@ -172,6 +193,7 @@ fun AppNavigation(
                 // Si un estudiante llegara a esta ruta, no se dibuja nada: el acceso queda restringido por perfil.
                 // ---- Sectores (solo docente) ----
                 composable(Rutas.SECTORES) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { sectorViewModel.recargar() }
                     if (esAdmin) {
                         SectorListScreen(
                             viewModel = sectorViewModel,
@@ -188,6 +210,7 @@ fun AppNavigation(
                     }
                 }
                 composable(Rutas.SECTOR_DETALLE) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { sectorViewModel.recargar() }
                     if (esAdmin) {
                         SectorDetalleScreen(
                             viewModel = sectorViewModel,
@@ -216,6 +239,7 @@ fun AppNavigation(
 
                 // ---- Cultivos (solo docente) ----
                 composable(Rutas.CULTIVOS) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { cultivoViewModel.recargar() }
                     if (esAdmin) {
                         CultivoListScreen(
                             viewModel = cultivoViewModel,
@@ -243,6 +267,7 @@ fun AppNavigation(
 
                 // ---- Tareas: docente crea y revisa ----
                 composable(Rutas.TAREAS) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tareaViewModel.recargar() }
                     if (esAdmin) {
                         TareaListScreen(
                             viewModel = tareaViewModel,
@@ -272,6 +297,7 @@ fun AppNavigation(
                 // (seleccionar) y recién después navego al detalle.
                 // ---- Tareas: estudiante ve y realiza las suyas ----
                 composable(Rutas.MIS_TAREAS) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tareaViewModel.recargar() }
                     if (esEstudiante && usuario != null) {
                         MisTareasScreen(
                             viewModel = tareaViewModel,
@@ -304,6 +330,7 @@ fun AppNavigation(
 
                 // ---- Reportes de problemas (ambos perfiles) ----
                 composable(Rutas.REPORTES) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { problemaViewModel.recargar() }
                     if (usuario != null) {
                         ReportesScreen(
                             viewModel = problemaViewModel,
@@ -328,6 +355,7 @@ fun AppNavigation(
 
                 // ---- Historial de actividades ----
                 composable(Rutas.HISTORIAL) {
+                    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { historialViewModel.recargar() }
                     if (usuario != null) {
                         HistorialScreen(
                             viewModel = historialViewModel,

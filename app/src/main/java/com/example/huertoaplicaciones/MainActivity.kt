@@ -10,13 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.example.huertoaplicaciones.data.AppDatabase
-import com.example.huertoaplicaciones.data.cargarDatosIniciales
-import com.example.huertoaplicaciones.data.repository.UsuarioRepository
+import com.example.huertoaplicaciones.data.repository.Repositorios
 import com.example.huertoaplicaciones.ui.navigation.AppNavigation
 import com.example.huertoaplicaciones.ui.theme.HuertoAplicacionesTheme
+import com.example.huertoaplicaciones.util.FotoUtils
 import com.example.huertoaplicaciones.viewmodel.AuthViewModel
 import com.example.huertoaplicaciones.viewmodel.AuthViewModelFactory
+import com.example.huertoaplicaciones.viewmodel.ClimaViewModel
 import com.example.huertoaplicaciones.viewmodel.CultivoViewModel
 import com.example.huertoaplicaciones.viewmodel.HistorialViewModel
 import com.example.huertoaplicaciones.viewmodel.PanelViewModel
@@ -26,7 +26,9 @@ import com.example.huertoaplicaciones.viewmodel.TareaViewModel
 import kotlinx.coroutines.launch
 
 // MainActivity es la PUERTA DE ENTRADA de la app: Android la abre al tocar el ícono.
-// Hace tres cosas: abre la base de datos, crea los ViewModels y dibuja la interfaz con setContent.
+// Hace tres cosas: prepara la foto de ejemplo, crea los ViewModels y dibuja la interfaz con setContent.
+// Los datos ya no están en el teléfono: viven en los microservicios (Spring Boot + MySQL)
+// y se consultan con Retrofit desde los repositorios.
 // La interfaz entera está hecha con Jetpack Compose, por eso aquí solo hay UNA Activity.
 class MainActivity : ComponentActivity() {
 
@@ -46,15 +48,14 @@ class MainActivity : ComponentActivity() {
         // La app se dibuja detrás de la barra de estado y la de navegación (pantalla completa moderna).
         enableEdgeToEdge()
 
-        // Abro (o creo) la base de datos Room.
-        val db = AppDatabase.getDatabase(applicationContext)
-        // Cargo los datos de prueba en segundo plano; solo lo hace si la base está vacía.
-        lifecycleScope.launch { cargarDatosIniciales(db, applicationContext) }
+        // Los datos de prueba del servidor usan una foto de ejemplo que debe existir en el teléfono:
+        // la creo en segundo plano (solo la primera vez).
+        lifecycleScope.launch { FotoUtils.crearFotoDemo(applicationContext) }
 
         // Creo los ViewModels. ViewModelProvider(this) los asocia a esta Activity: sobreviven a las rotaciones
-        // de pantalla. El de login necesita una fábrica porque recibe el repositorio como parámetro.
+        // de pantalla. El de login usa una fábrica que le entrega el repositorio de usuarios.
         val authViewModel = ViewModelProvider(
-            this, AuthViewModelFactory(UsuarioRepository(db.usuarioDao()))
+            this, AuthViewModelFactory(Repositorios.usuarios)
         )[AuthViewModel::class.java]
         val sectorViewModel = ViewModelProvider(this)[SectorViewModel::class.java]
         val cultivoViewModel = ViewModelProvider(this)[CultivoViewModel::class.java]
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
         val panelViewModel = ViewModelProvider(this)[PanelViewModel::class.java]
         val historialViewModel = ViewModelProvider(this)[HistorialViewModel::class.java]
         val registroViewModel = ViewModelProvider(this)[RegistroViewModel::class.java]
+        val climaViewModel = ViewModelProvider(this)[ClimaViewModel::class.java]
 
         // setContent: aquí empieza la interfaz Compose. Todo va dentro del tema de la app (colores y tipografía)
         // y AppNavigation decide qué pantalla mostrar.
@@ -70,7 +72,8 @@ class MainActivity : ComponentActivity() {
             HuertoAplicacionesTheme {
                 AppNavigation(
                     authViewModel, sectorViewModel, cultivoViewModel, tareaViewModel,
-                    problemaViewModel, panelViewModel, historialViewModel, registroViewModel
+                    problemaViewModel, panelViewModel, historialViewModel, registroViewModel,
+                    climaViewModel
                 )
             }
         }

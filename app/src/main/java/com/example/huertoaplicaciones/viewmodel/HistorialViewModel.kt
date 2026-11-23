@@ -1,20 +1,23 @@
 package com.example.huertoaplicaciones.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.huertoaplicaciones.data.AppDatabase
 import com.example.huertoaplicaciones.data.entity.Usuario
+import com.example.huertoaplicaciones.data.remote.describirError
 import com.example.huertoaplicaciones.data.repository.ProblemaRepository
+import com.example.huertoaplicaciones.data.repository.Repositorios
 import com.example.huertoaplicaciones.data.repository.TareaRepository
 import com.example.huertoaplicaciones.data.repository.UsuarioRepository
 import com.example.huertoaplicaciones.util.EstadoTarea
+import com.example.huertoaplicaciones.util.Mensajes
 import com.example.huertoaplicaciones.util.Perfil
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 // Tipos de eventos del historial: la pantalla los usa para elegir el ícono y el color.
 enum class TipoEvento { TAREA_CREADA, TAREA_ENTREGADA, VALIDACION, RECHAZO, PROBLEMA, PROBLEMA_ATENDIDO }
@@ -29,16 +32,31 @@ data class EventoHistorial(
 
 // Línea de tiempo con tareas, entregas, validaciones y problemas.
 // El docente ve todo el huerto; cada estudiante solo lo que le corresponde.
-// No hay una tabla "historial": lo ARMO juntando datos de varias tablas (tareas, validaciones, problemas).
-class HistorialViewModel(application: Application) : AndroidViewModel(application) {
+// No hay un endpoint "historial": lo ARMO juntando datos de varios (tareas, validaciones, problemas).
+class HistorialViewModel(
+    private val tareaRepository: TareaRepository = Repositorios.tareas,
+    private val problemaRepository: ProblemaRepository = Repositorios.problemas,
+    private val usuarioRepository: UsuarioRepository = Repositorios.usuarios
+) : ViewModel() {
 
-    private val db = AppDatabase.getDatabase(application)
-    private val tareaRepository = TareaRepository(db)
-    private val problemaRepository = ProblemaRepository(db.problemaDao())
-    private val usuarioRepository = UsuarioRepository(db.usuarioDao())
     private val usuario = MutableStateFlow<Usuario?>(null)
 
     fun definirUsuario(u: Usuario?) { usuario.value = u }
+
+    // GET /tareas, /validaciones, /problemas y /usuarios. Se llama al abrir el historial.
+    fun recargar() {
+        viewModelScope.launch {
+            try {
+                tareaRepository.recargar()
+                problemaRepository.recargar()
+                usuarioRepository.recargar()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Mensajes.error(describirError(e))
+            }
+        }
+    }
 
     // Junto 5 flujos; cualquier cambio en alguno recalcula la línea de tiempo completa.
     val eventos: StateFlow<List<EventoHistorial>> = combine(

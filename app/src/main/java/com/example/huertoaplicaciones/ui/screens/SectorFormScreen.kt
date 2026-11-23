@@ -12,14 +12,18 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.huertoaplicaciones.ui.components.CampoTexto
 import com.example.huertoaplicaciones.util.EstadoSector
 import com.example.huertoaplicaciones.viewmodel.SectorViewModel
 
-// Formulario para crear o editar un sector. Usa el componente CampoTexto, que ya trae el ícono,
+// Formulario ÚNICO para crear o editar un sector (igual que en clase: un solo formulario que
+// cambia su comportamiento según venga o no un id). Usa el componente CampoTexto, que ya trae el ícono,
 // el borde rojo y el mensaje de error. Las reglas de validación están en el SectorViewModel.
+//  - cargando  = true mientras llega el sector a editar (GET)  -> se muestra una ruedita
+//  - guardando = true mientras se envía el POST o PUT          -> el botón se desactiva y muestra una ruedita
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SectorFormScreen(
@@ -47,6 +51,16 @@ fun SectorFormScreen(
             )
         }
     ) { innerPadding ->
+        // Mientras llega el sector desde el servidor, muestro solo el indicador de progreso
+        if (form.cargando) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -98,9 +112,19 @@ fun SectorFormScreen(
             Button(
                 // Al presionar Guardar, el ViewModel valida TODO; si hay errores no guarda y marca los campos en rojo.
                 onClick = { viewModel.guardar() },
+                // Desactivado mientras se envía, así un doble toque no crea dos sectores
+                enabled = !form.guardando,
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
-                Text("Guardar sector")
+                if (form.guardando) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Guardar sector")
+                }
             }
         }
     }
