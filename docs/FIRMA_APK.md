@@ -74,5 +74,11 @@ android {
 }
 ```
 
+## Para el README (punto 6 de la pauta)
+
+Saquen dos capturas y guárdenlas en `docs/capturas/`:
+
+1. `apk-firmado.png`: la carpeta con `app-release.apk`, o el resultado de `apksigner verify`.
+2. `jks.png`: la ventana de creación de la llave, o la carpeta `keystore/` con el `.jks`.
 
 > En un proyecto real, el `.jks` y `keystore.properties` **nunca** se suben a GitHub: quien tenga la llave puede publicar actualizaciones falsas de la app. Aquí se suben solo porque la pauta lo exige.
