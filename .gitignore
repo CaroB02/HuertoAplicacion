@@ -17,4 +17,3 @@ local.properties
 # Archivos del editor y registros de fallos de la JVM
 /.idea/
 hs_err_pid*.log
-.kotlin/
